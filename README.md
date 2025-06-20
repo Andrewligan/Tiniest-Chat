@@ -1,40 +1,49 @@
 
-## OpenRouter Static API Frontend
+## The Smallest ChatGPT Wrapper
 
-A single‑page HTML client that lets you talk directly to the [OpenRouter](https://openrouter.ai) API from your browser.
+A single‑page HTML client that lets you talk directly to OpenAI compatible APIs such as [OpenRouter](https://openrouter.ai), [Llama CPP](https://github.com/ggml-org/llama.cpp)  from your browser.
 No backend, no build step – just drop the file somewhere and open it.
 
 ---
 
 ### Features
 
+* * ~50 KB total size (~10 KB gzipped)
 * **Zero‑server** usage – load the file from disk (`file://`) *or* run it from any static host.
-* Select any model listed by the `/models` endpoint.
+* No Cookies, No Tracking, No Persistence
 * Dark‑mode friendly, responsive UI.
 
 ---
 
 ## Quick Start (open from disk)
 
-1. Clone or download this repository.
-2. Double‑click `index.html` (or open with Ctrl/Cmd + O in your browser).
-3. Paste your OpenRouter API key when prompted.
+1. Click on [`index.html`](./index.html)
+2. Right-click → **Save As** or press **Download Raw File**
+3. Double‑click `index.html` (or open with Ctrl/Cmd + O in your browser).
+4. Paste your OpenRouter API key when prompted.
 
-> **Heads‑up** When opened via `file://`, the browser sends `Origin: null` and most APIs will block the request.  If you see a CORS error, use one of the static‑server options below.
+> **Heads‑up** When opened via `file://`, the browser sends `Origin: null` and most APIs should block the request. However, they don't! This behavior is liable to change at any time, and so if you see a CORS error, use one of the static‑server options below.
 
 ---
 
 ## Running a tiny local server
 
+Download 
 ```bash
-# Python ≥ 3.7
-python -m http.server 8080  # now visit http://localhost:8080/index.html
-
-# …or, with Node
-npx serve -l 8080 .
+git clone https://github.com/Andrewligan/Tiniest-Chat
+cd Tiniest-Chat
 ```
 
-Any static‑file server will work; the page only needs an Origin header that is *not* `null`.
+Run
+```bash
+# Python ≥ 3.7
+python -m http.server 8040  # now visit http://localhost:8040/index.html
+
+# …or, with Node
+npx serve -l 8040 .
+```
+
+Any static‑file server will work;
 
 ---
 
@@ -68,21 +77,11 @@ curl https://openrouter.ai/api/v1/completions \
       }'
 ```
 
-### 3 – Download & self‑host
-
-```bash
-git clone https://github.com/your‑org/openrouter‑static-frontend.git
-cd openrouter‑static-frontend
-python -m http.server 8080
-```
-
----
-
 ## Security notes
 
 * **Never commit real API keys.** Use environment variables or paste at runtime.
 * The client stores the key in memory only; refresh the page to purge it.
-* When deployed on a public URL, CORS pre‑flight succeeds because OpenRouter allows any origin – your browser still prevents other sites from stealing your key.
+* When deployed on a public URL, CORS pre‑flight succeeds because OpenRouter and other API providers allow any origin – your browser still prevents other sites from stealing your key. This does not protect against malicious extensions. Make sure you understand how a program works when you use it.
 
 ---
 
