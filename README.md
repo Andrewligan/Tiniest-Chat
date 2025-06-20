@@ -8,7 +8,7 @@ No backend, no build step – just drop the file somewhere and open it.
 
 ### Features
 
-* * ~50 KB total size (~10 KB gzipped)
+*  ~50 KB total size (~10 KB gzipped)
 * **Zero‑server** usage – load the file from disk (`file://`) *or* run it from any static host.
 * No Cookies, No Tracking, No Persistence
 * Dark‑mode friendly, responsive UI.
