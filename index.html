@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -91,7 +92,7 @@
         flex-direction: column;
         align-items: center;
         gap: var(--spacing-lg);
-        height: 100vh;
+        height: 100dvh;
     }
     
     h1 {
@@ -171,9 +172,12 @@
         transform: translateX(-50%);
         flex-direction: column-reverse;
         align-items: center;
+        z-index: 11;
     }
     .collapsible-container--right.collapsed { transform: translateX(calc(100% - var(--toggle-size))); }
-    .collapsible-container--top.collapsed { transform: translate(-50%, calc(-100% + var(--toggle-size))); }
+    .collapsible-container--top.collapsed {
+        transform: translate(-50%, calc(-100% + var(--toggle-size)));
+    }
 
     .side-panel { gap: var(--spacing-md); font-size: calc(0.8rem * var(--font-size-multiplier)); }
     .top-panel { width: 100%; max-width: 500px; font-size: calc(0.9rem * var(--font-size-multiplier)); gap: var(--spacing-md); }
@@ -187,12 +191,14 @@
         background-color: rgba(var(--bubble-rgb), var(--bubble-opacity));
         border-radius: var(--radius-lg);
         flex-shrink: 0;
+        transition: background-color var(--transition-medium), transform var(--transition-slow);
     }
     .collapsible-toggle svg {
         width: 24px;
         fill: var(--bubble-text-color);
         transition: transform var(--transition-slow) ease-in-out, fill var(--transition-medium);
     }
+
     .collapsible-container--right.collapsed .collapsible-toggle svg { transform: rotate(180deg); }
     .collapsible-container--top:not(.collapsed) .collapsible-toggle svg { transform: rotate(180deg); }
     
@@ -374,7 +380,6 @@
     #models-list::-webkit-scrollbar-thumb:hover, #parameters-list::-webkit-scrollbar-thumb:hover, #chat-area::-webkit-scrollbar-thumb:hover { opacity: 0.8; }
     
     @media (max-width: 600px) {
-        .collapsible-container--right { top: auto; bottom: var(--spacing-lg); }
         .bottom-panel-container { width: 90%; }
         #models-list { grid-template-columns: 1fr; }
     }
@@ -788,6 +793,14 @@
           this.openRouterModelsButton.style.display = 'none';
           this.localhostConfigButton.style.display = 'none';
           this.urlInput.value = this.state.baseUrl;
+          this.mobileMediaQuery = window.matchMedia('(max-width: 600px)');
+          this.topToggleAlignmentOffset = 0;
+          this.isTextSliderActive = false; // Flag to track slider drag state
+
+          // Properties to store the measured range.
+          this.minToggleX = 0;
+          this.maxToggleX = 0;
+          this.initialApiToggleX = 0;
         }
 
         queryDOMElements() {
@@ -825,11 +838,33 @@
           this.themeToggle.addEventListener('change', e => this.handleThemeToggle(e));
           this.animationToggle.addEventListener('change', e => this.handleAnimationToggle(e));
           this.opacitySlider.addEventListener('input', e => this.root.style.setProperty('--bubble-opacity', e.target.value / 100));
-          this.textSizeSlider.addEventListener('input', e => this.root.style.setProperty('--font-size-multiplier', e.target.value / 100));
+          
+          this.textSizeSlider.addEventListener('input', e => {
+              this.root.style.setProperty('--font-size-multiplier', e.target.value / 100);
+              this.updateApiTogglePositionLinearly();
+          });
+          
+          // NEW: Robust drag handling using a flag
+          const handleDragStart = () => {
+              this.isTextSliderActive = true;
+          };
+          const handleDragEnd = () => {
+              this.isTextSliderActive = false;
+              // Call one last time to ensure the transition style is correctly reset
+              this.updateTopTogglePosition();
+          };
+          this.textSizeSlider.addEventListener('mousedown', handleDragStart);
+          this.textSizeSlider.addEventListener('touchstart', handleDragStart);
+          window.addEventListener('mouseup', handleDragEnd);
+          window.addEventListener('touchend', handleDragEnd);
+
+          
           this.backgroundZoomSlider.addEventListener('input', e => this.state.zoom = parseFloat(e.target.value));
 
-          this.sidePanelToggle.addEventListener('click', () => this.sidePanelToggle.parentElement.classList.toggle('collapsed'));
-          this.topDropdownToggle.addEventListener('click', () => this.topDropdownToggle.parentElement.classList.toggle('collapsed'));
+          this.sidePanelToggle.addEventListener('click', () => this.handleSideToggleClick());
+          this.topDropdownToggle.addEventListener('click', () => this.handleTopToggleClick());
+          this.mobileMediaQuery.addEventListener('change', () => this.captureInitialPositions());
+
           this.openRouterModelsButton.addEventListener('click', () => this.handleOpenRouterModelsButtonClick());
           this.localhostConfigButton.addEventListener('click', () => this.localhostConfigPanelContainer.classList.add('visible'));
           this.modelsPanelToggle.addEventListener('click', () => this.openRouterModelsPanelContainer.classList.remove('visible'));
@@ -855,6 +890,95 @@
           });
         }
         
+        updateApiTogglePositionLinearly() {
+            if (this.minToggleX === 0 || this.maxToggleX === 0) return; // Don't run if not initialized
+
+            const minSlider = parseFloat(this.textSizeSlider.min);
+            const maxSlider = parseFloat(this.textSizeSlider.max);
+            const currentSlider = parseFloat(this.textSizeSlider.value);
+            const progress = (currentSlider - minSlider) / (maxSlider - minSlider);
+            const targetSideToggleX = this.minToggleX + (this.maxToggleX - this.minToggleX) * progress;
+            this.topToggleAlignmentOffset = targetSideToggleX - this.initialApiToggleX;
+            this.updateTopTogglePosition();
+        }
+
+        async captureInitialPositions() {
+            if (!this.mobileMediaQuery.matches) {
+                this.minToggleX = 0; // Reset if not on mobile
+                return;
+            }
+
+            const sidePanelContainer = this.sidePanelToggle.parentElement;
+            const originalSliderValue = this.textSizeSlider.value;
+
+            sidePanelContainer.style.transition = 'none';
+            sidePanelContainer.style.visibility = 'hidden';
+
+            const measure = () => {
+                const sideRect = this.sidePanelToggle.getBoundingClientRect();
+                return sideRect.left + sideRect.width / 2;
+            }
+
+            const nextFrame = () => new Promise(resolve => requestAnimationFrame(resolve));
+
+            this.textSizeSlider.value = this.textSizeSlider.min;
+            this.root.style.setProperty('--font-size-multiplier', this.textSizeSlider.min / 100);
+            await nextFrame();
+            this.minToggleX = measure();
+
+            this.textSizeSlider.value = this.textSizeSlider.max;
+            this.root.style.setProperty('--font-size-multiplier', this.textSizeSlider.max / 100);
+            await nextFrame();
+            this.maxToggleX = measure();
+            
+            this.textSizeSlider.value = originalSliderValue;
+            this.root.style.setProperty('--font-size-multiplier', originalSliderValue / 100);
+            await nextFrame();
+            const topRect = this.topDropdownToggle.getBoundingClientRect();
+            this.initialApiToggleX = topRect.left + topRect.width / 2;
+
+            sidePanelContainer.style.visibility = '';
+            sidePanelContainer.style.transition = '';
+
+            this.updateApiTogglePositionLinearly();
+        }
+
+
+        updateTopTogglePosition() {
+            const topToggle = this.topDropdownToggle;
+            if (!this.mobileMediaQuery.matches) {
+                topToggle.style.transform = '';
+                return;
+            }
+            const sidePanelIsOpen = !this.sidePanelToggle.parentElement.classList.contains('collapsed');
+            if (sidePanelIsOpen) {
+                // MODIFIED: Use the flag to disable transition
+                topToggle.style.transition = this.isTextSliderActive ? 'none' : '';
+                topToggle.style.transform = `translateX(${this.topToggleAlignmentOffset}px)`;
+            } else {
+                topToggle.style.transition = '';
+                topToggle.style.transform = '';
+            }
+        }
+        
+        handleTopToggleClick() {
+            const isOpening = this.topDropdownToggle.parentElement.classList.contains('collapsed');
+            if (this.mobileMediaQuery.matches && isOpening) {
+                this.sidePanelToggle.parentElement.classList.add('collapsed');
+            }
+            this.topDropdownToggle.parentElement.classList.toggle('collapsed');
+            this.updateTopTogglePosition();
+        }
+    
+        handleSideToggleClick() {
+            const isOpening = this.sidePanelToggle.parentElement.classList.contains('collapsed');
+            if (this.mobileMediaQuery.matches && isOpening) {
+                this.topDropdownToggle.parentElement.classList.add('collapsed');
+            }
+            this.sidePanelToggle.parentElement.classList.toggle('collapsed');
+            this.updateTopTogglePosition();
+        }
+
         handleThemeToggle(e) {
           this.state.isDarkMode = !e.target.checked;
           document.body.classList.toggle('light-mode', !this.state.isDarkMode);
@@ -929,7 +1053,6 @@
             this.renderChatHistory(); 
             this.chatPromptInput.value = '';
 
-            // UPDATED: More specific API key check
             if (!this.state.apiKey && this.providerButton.textContent === 'OpenRouter') {
                 this.state.addMessage('assistant', 'Error: API key is not set for OpenRouter.');
                 this.renderChatHistory();
@@ -1021,8 +1144,8 @@
             this.state.baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
             this.urlInput.value = this.state.baseUrl;
             
-            const existingButton = document.getElementById('selected-model-display-button');
-            if (existingButton) existingButton.remove();
+            const existingModelButton = document.getElementById('selected-model-display-button');
+            if (existingModelButton) existingModelButton.remove();
 
             const button = document.createElement('button');
             button.id = 'selected-model-display-button';
@@ -1061,6 +1184,11 @@
         }
 
         uiManager.initializeEventListeners();
+        
+        // Use requestAnimationFrame to ensure the initial layout is painted before we measure it.
+        requestAnimationFrame(async () => {
+          await uiManager.captureInitialPositions();
+        });
         
         appState.addMessage('assistant', 'Welcome to tiniest chat!');
         uiManager.renderChatHistory();
